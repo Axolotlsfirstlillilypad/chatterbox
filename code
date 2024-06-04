@@ -1,0 +1,90 @@
+import mysql.connector
+
+# Connect to MySQL database
+def connect_to_database():
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="username",
+            password="password",
+            database="your_database"
+        )
+        return connection
+    except mysql.connector.Error as err:
+        print("Error connecting to MySQL database:", err)
+
+# Function to execute SQL query and fetch results
+def execute_query(connection, query):
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return results
+    except mysql.connector.Error as err:
+        print("Error executing query:", err)
+
+# Function to process user queries and generate responses
+def process_query(query):
+    connection = connect_to_database()
+    if connection:
+        if "customer whose name is" in query:
+            customer_name = query.split("customer whose name is")[1].strip()
+            query = "SELECT address FROM customers WHERE name = '{}'".format(customer_name)
+            results = execute_query(connection, query)
+            if results:
+                return "You have a customer whose name is “{}”. Its address is: {}".format(customer_name, results[0]['address'])
+            else:
+                return "No customer found with the name “{}”".format(customer_name)
+        elif "inactive since last" in query:
+            # Implement logic to handle inactive customers query
+            query = "SELECT COUNT(*) AS inactive_count FROM customers WHERE last_purchase_date < DATE_SUB(NOW(), INTERVAL 2 MONTH)"
+            results = execute_query(connection, query)
+            if results:
+                return "There are {} customers who have not purchased any material from our crusher".format(results[0]['inactive_count'])
+            else:
+                return "No inactive customers found"
+        elif "Give me their names" in query:
+            # Implement logic to retrieve names of inactive customers
+            query = "SELECT name FROM customers WHERE last_purchase_date < DATE_SUB(NOW(), INTERVAL 2 MONTH)"
+            results = execute_query(connection, query)
+            if results:
+                names = ", ".join(result['name'] for result in results)
+                return names
+            else:
+                return "No inactive customers found"
+        elif "do we have any outstanding from them?" in query:
+            # Implement logic to check outstanding payments for inactive customers
+            query = "SELECT name, outstanding_amount FROM customers WHERE last_purchase_date < DATE_SUB(NOW(), INTERVAL 2 MONTH)"
+            results = execute_query(connection, query)
+            if results:
+                outstanding_customers = [result['name'] for result in results if result['outstanding_amount'] > 0]
+                if outstanding_customers:
+                    outstanding_info = ", ".join("{} has an outstanding of {} Rs".format(customer['name'], customer['outstanding_amount']) for customer in results)
+                    return "Yes. " + outstanding_info
+                else:
+                    return "No outstanding payments from inactive customers"
+            else:
+                return "No inactive customers found"
+        elif "Give me the names of our top 2 clients." in query:
+            # Implement logic to retrieve top clients
+            query = "SELECT name, business_amount FROM customers ORDER BY business_amount DESC LIMIT 2"
+            results = execute_query(connection, query)
+            if results:
+                top_clients = "\n".join("{} is our top client with a business of {} Rs".format(client['name'], client['business_amount']) for client in results)
+                return top_clients
+            else:
+                return "No clients found"
+        else:
+            return "I'm sorry, I couldn't understand your query."
+    else:
+        return "I'm sorry, I couldn't connect to the database."
+
+# Main function to handle user interaction
+def main():
+    while True:
+        user_query = input("User: ")
+        response = process_query(user_query)
+        print("ChatBot:", response)
+
+if __name__ == "__main__":
+    main()
